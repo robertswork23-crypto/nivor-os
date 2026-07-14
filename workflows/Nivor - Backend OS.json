@@ -1,0 +1,214 @@
+{
+  "name": "Nivor - Backend OS",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -80
+      ],
+      "id": "5e7ca6cb-a900-4107-a33c-a134b5cc1358",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) as lead_count FROM leads WHERE phone = '5551234';\n\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -480,
+        -80
+      ],
+      "id": "45fceebd-2471-45d3-bc7a-04d1500da9f6",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b4526c5-c5b2-4ef2-940b-6779457931eb",
+              "name": "lead_name",
+              "value": "JohnDoe",
+              "type": "string"
+            },
+            {
+              "id": "d04332c7-9c3d-4978-a862-d4d47c42c0e1",
+              "name": "lead_phone",
+              "value": "\"5551234\"",
+              "type": "string"
+            },
+            {
+              "id": "a6fe30e5-487b-4d16-b284-bec588136ecf",
+              "name": "lead_intent",
+              "value": "buyer",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -672,
+        -80
+      ],
+      "id": "0c32dec4-9462-4bc5-a205-f671972a7d52",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1b5ee16-9c2f-4c30-8946-b6a42e9032a7",
+              "leftValue": "={{ $json.lead_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -272,
+        -80
+      ],
+      "id": "c9bf3019-571c-4f4c-be42-54a0b75a4047",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO leads (name, phone, intent) \nVALUES ('Jane Smith', '5559999', 'seller');\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "dadc5bc3-8dcd-4d80-b756-e6ddba6e0497",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads\nSET intent = 'updated_intent',\n    last_contacted = NOW()\nWHERE phone = '5551234';\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -64,
+        -176
+      ],
+      "id": "7720914f-6804-4040-a94f-385931167af8",
+      "name": "Execute a SQL query2",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6401ad9d-dc0e-4aaa-8053-22b55f6aeea6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8f3ae60e6a8a26c297378764122e56edd6ce6154af7daaf93b06843d42902f9f"
+  },
+  "id": "RDwqQrSO5RL2LZfm",
+  "tags": []
+}

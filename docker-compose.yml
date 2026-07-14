@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: nivor
+      POSTGRES_PASSWORD: nivor_password
+      POSTGRES_DB: nivor_leads
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - nivor_network
+
+  n8n:
+    image: n8n:latest
+    environment:
+      DB_TYPE: postgres
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_USER: nivor
+      DB_POSTGRESDB_PASSWORD: nivor_password
+      DB_POSTGRESDB_DATABASE: nivor_leads
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      WEBHOOK_URL: http://localhost:5678
+    ports:
+      - "5678:3000"
+    depends_on:
+      - postgres
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - nivor_network
+
+volumes:
+  postgres_data:
+  n8n_data:
+
+networks:
+  nivor_network:
+    driver: bridge
