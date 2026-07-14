@@ -3,45 +3,12 @@
   "nodes": [
     {
       "parameters": {
-        "modelId": {
-          "__rl": true,
-          "value": "gpt-4o-mini",
-          "mode": "list",
-          "cachedResultName": "GPT-4O-MINI"
-        },
-        "responses": {
-          "values": [
-            {
-              "content": "=You are a sales follow-up assistant. Generate a personalized follow-up message. Lead Info: - Name: {{$json.name}} - Intent: {{$json.intent}} - Phone: {{$json.phone}} Generate a 1-2 sentence follow-up message that is: - Personalized (use their name and intent) - Professional but friendly - Action-oriented Respond with ONLY the message, no other text."
-            }
-          ]
-        },
-        "builtInTools": {},
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 2.1,
-      "position": [
-        272,
-        -1488
-      ],
-      "id": "f0a0ddc5-3e8b-43be-bc3e-b5b6380fa88c",
-      "name": "Message a model",
-      "credentials": {
-        "openAiApi": {
-          "id": "6Rg7TtySvkyyQw2P",
-          "name": "OpenAI account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "assignments": {
           "assignments": [
             {
               "id": "2c5de36a-965f-431b-ae3c-17ad0864a657",
               "name": "name",
-              "value": "={{$json.body.name}}",
+              "value": "={{ $json.body.name }}",
               "type": "string"
             },
             {
@@ -63,8 +30,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -3264,
-        1056
+        -2608,
+        -64
       ],
       "id": "fdaa7b2d-db29-4d37-bd4c-aff3e19ebf5f",
       "name": "Edit Fields"
@@ -90,8 +57,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        -3024,
-        1056
+        -2368,
+        -64
       ],
       "id": "caf6957e-9f7e-44cc-94bf-a317319665c0",
       "name": "OpenAI",
@@ -115,7 +82,7 @@
             {
               "id": "882809fc-8920-460b-8969-fd7844cd9314",
               "name": "phone",
-              "value": "={{ $('Edit Fields').item.json.name }}",
+              "value": "={{ $('Edit Fields').item.json.phone }}",
               "type": "string"
             },
             {
@@ -127,7 +94,7 @@
             {
               "id": "02222feb-106a-46e2-8810-e99a07ee4dd3",
               "name": "ai_message",
-              "value": "={{$json.ai_message}}\n",
+              "value": "={{ $json.output[0].content[0].text }}\n",
               "type": "string"
             }
           ]
@@ -137,8 +104,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -2720,
-        1056
+        -2064,
+        -64
       ],
       "id": "5fb36f18-9054-4449-bb1a-639051de2da2",
       "name": "Set Data with AI"
@@ -146,14 +113,16 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COUNT(*) as lead_count FROM leads WHERE phone = '{{$json.phone}}'",
-        "options": {}
+        "query": "SELECT COUNT(*) as lead_count FROM leads WHERE phone = $1",
+        "options": {
+          "queryReplacement": "={{$json.phone}}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -2512,
-        1056
+        -1856,
+        -64
       ],
       "id": "4a78b3ae-4289-4b0e-8ac8-7459557c629c",
       "name": "Check Lead Exists",
@@ -167,35 +136,16 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO leads (name, phone, intent, ai_message) VALUES ('{{$json.name}}', '{{$json.phone}}', '{{$json.intent}}', '{{$json.ai_message}}')",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -2000,
-        960
-      ],
-      "id": "62a1b5b1-66c3-48f4-9daf-415e478e2c1f",
-      "name": "Insert New Lead",
-      "credentials": {
-        "postgres": {
-          "id": "P9rvHpHyxuHVYw1Z",
-          "name": "Postgres account"
+        "query": "UPDATE leads \nSET \n  intent = $1,\n  ai_message = $2,\n  last_contacted = NOW()\nWHERE phone = $3",
+        "options": {
+          "queryReplacement": "=$1 = {{ $('Set Data with AI').item.json.intent }}\n$2 = {{ $('Set Data with AI').item.json.ai_message }} \n$3 = {{ $('Set Data with AI').item.json.phone }}"
         }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE leads SET intent = '{{$json.intent}}', ai_message = '{{$json.ai_message}}', last_contacted = NOW() WHERE phone = '{{$json.phone}}'",
-        "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -2000,
-        1152
+        -1344,
+        32
       ],
       "id": "ef0d666a-bebf-4af1-b877-d5142136eb19",
       "name": "Update Existing Lead",
@@ -215,8 +165,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -3504,
-        1056
+        -2848,
+        -64
       ],
       "id": "386d4552-0b85-4acd-a44e-0cdff203849e",
       "name": "Webhook1",
@@ -250,20 +200,38 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -2256,
-        1056
+        -1600,
+        -64
       ],
       "id": "67be377b-bd86-4af2-add1-cda99efe7f13",
       "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO leads (name, phone, intent, ai_message, last_contacted)\nVALUES ($1, $2, $3, $4, NOW())",
+        "options": {
+          "queryReplacement": "={{ $('Set Data with AI').item.json.name }}\n{{ $('Set Data with AI').item.json.phone }}\n{{ $('Set Data with AI').item.json.intent }}\n{{ $('Set Data with AI').item.json.ai_message }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1344,
+        -128
+      ],
+      "id": "12d52f4b-061f-4b0d-b2bd-b4397aa3db90",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "pinData": {},
   "connections": {
-    "Message a model": {
-      "main": [
-        []
-      ]
-    },
     "Edit Fields": {
       "main": [
         [
@@ -308,11 +276,6 @@
         ]
       ]
     },
-    "Insert New Lead": {
-      "main": [
-        []
-      ]
-    },
     "Update Existing Lead": {
       "main": [
         []
@@ -340,7 +303,7 @@
         ],
         [
           {
-            "node": "Insert New Lead",
+            "node": "Execute a SQL query",
             "type": "main",
             "index": 0
           }
@@ -353,7 +316,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "b10b1b7f-73b7-4292-8759-33b290d056a6",
+  "versionId": "c7e9fc92-87e8-4a50-a7e2-059e6a464fa9",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8f3ae60e6a8a26c297378764122e56edd6ce6154af7daaf93b06843d42902f9f"
