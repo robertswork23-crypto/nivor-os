@@ -18,6 +18,50 @@ A stateful lead follow-up system built with n8n, PostgreSQL, and Docker.
 - **OpenAI GPT-4o-mini** - AI follow-up generation
 - **Docker** - Container orchestration
 
+## System Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                               │
+│  Lead Data (name, phone, intent)                            │
+│         ↓                                                    │
+│  Webhook → Lead Capture API (n8n)                           │
+│         ↓                                                    │
+│  Check for Duplicate (by phone)                             │
+│         ↓                                                    │
+│  Generate AI Follow-up Message                              │
+│         ↓                                                    │
+│  PostgreSQL: Insert or Update                               │
+│         ↓                                                    │
+│  Track last_contacted timestamp                             │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                                                               │
+│  Follow-Up Engine (Scheduled Cron)                          │
+│         ↓                                                    │
+│  Query: leads not replied to within 1 hour                  │
+│         ↓                                                    │
+│  Loop through each lead                                      │
+│         ↓                                                    │
+│  Send Follow-up Message                                     │
+│         ↓                                                    │
+│  Update last_contacted                                       │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Step-by-Step
+
+1. **Lead hits webhook** - Incoming POST request with lead info
+2. **System checks for duplicate** - Queries PostgreSQL by phone number
+3. **AI generates message** - OpenAI GPT-4o-mini creates personalized follow-up
+4. **Insert or update** - New lead inserted or existing record updated
+5. **Tracks engagement** - `last_contacted` timestamp recorded
+6. **Cron job scans** - Follow-Up Engine runs on interval
+7. **Auto-generates follow-up** - Sends message to inactive leads
+
 ## Workflows
 
 ### 1. Lead Capture API
