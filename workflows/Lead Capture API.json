@@ -3,152 +3,20 @@
   "nodes": [
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "2c5de36a-965f-431b-ae3c-17ad0864a657",
-              "name": "name",
-              "value": "={{ $json.body.name }}",
-              "type": "string"
-            },
-            {
-              "id": "882809fc-8920-460b-8969-fd7844cd9314",
-              "name": "phone",
-              "value": "={{$json.body.phone}}",
-              "type": "string"
-            },
-            {
-              "id": "b2bce26a-c01f-418d-85b5-9e13506b3463",
-              "name": "intent",
-              "value": "={{$json.body.intent}}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -2608,
-        -64
-      ],
-      "id": "fdaa7b2d-db29-4d37-bd4c-aff3e19ebf5f",
-      "name": "Edit Fields"
-    },
-    {
-      "parameters": {
-        "modelId": {
-          "__rl": true,
-          "value": "gpt-4o-mini",
-          "mode": "list",
-          "cachedResultName": "GPT-4O-MINI"
-        },
-        "responses": {
-          "values": [
-            {
-              "content": "=You are a sales follow-up assistant. Generate a personalized follow-up message. Lead Info: Name: {{$json.name}} Intent: {{$json.intent}} Phone: {{$json.phone}} Generate a 1-2 sentence follow-up message that is personalized, professional but friendly, and action-oriented. Respond with ONLY the message text, nothing else."
-            }
-          ]
-        },
-        "builtInTools": {},
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 2.1,
-      "position": [
-        -2368,
-        -64
-      ],
-      "id": "caf6957e-9f7e-44cc-94bf-a317319665c0",
-      "name": "OpenAI",
-      "credentials": {
-        "openAiApi": {
-          "id": "6Rg7TtySvkyyQw2P",
-          "name": "OpenAI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "2c5de36a-965f-431b-ae3c-17ad0864a657",
-              "name": "name",
-              "value": "={{ $('Edit Fields').item.json.name }}",
-              "type": "string"
-            },
-            {
-              "id": "882809fc-8920-460b-8969-fd7844cd9314",
-              "name": "phone",
-              "value": "={{ $('Edit Fields').item.json.phone }}",
-              "type": "string"
-            },
-            {
-              "id": "b2bce26a-c01f-418d-85b5-9e13506b3463",
-              "name": "intent",
-              "value": "={{ $('Edit Fields').item.json.intent }}",
-              "type": "string"
-            },
-            {
-              "id": "02222feb-106a-46e2-8810-e99a07ee4dd3",
-              "name": "ai_message",
-              "value": "={{ $json.output[0].content[0].text }}\n",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -2064,
-        -64
-      ],
-      "id": "5fb36f18-9054-4449-bb1a-639051de2da2",
-      "name": "Set Data with AI"
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COUNT(*) as lead_count FROM leads WHERE phone = $1",
+        "query": "SELECT \n  COUNT(*) AS lead_exists,\n  COALESCE(\n    MAX(CASE WHEN last_contacted > NOW() - INTERVAL '1 day' THEN 1 ELSE 0 END), \n    0\n  ) AS contacted_too_recently\nFROM leads \nWHERE phone = '{{ $json.phone }}';",
         "options": {
-          "queryReplacement": "={{$json.phone}}"
+          "queryReplacement": "=={{ [ $json.phone ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        -1856,
-        -64
+        -2688,
+        -144
       ],
       "id": "4a78b3ae-4289-4b0e-8ac8-7459557c629c",
       "name": "Check Lead Exists",
-      "credentials": {
-        "postgres": {
-          "id": "P9rvHpHyxuHVYw1Z",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE leads \nSET \n  intent = $1,\n  ai_message = $2,\n  last_contacted = NOW()\nWHERE phone = $3",
-        "options": {
-          "queryReplacement": "=$1 = {{ $('Set Data with AI').item.json.intent }}\n$2 = {{ $('Set Data with AI').item.json.ai_message }} \n$3 = {{ $('Set Data with AI').item.json.phone }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -1344,
-        32
-      ],
-      "id": "ef0d666a-bebf-4af1-b877-d5142136eb19",
-      "name": "Update Existing Lead",
       "credentials": {
         "postgres": {
           "id": "P9rvHpHyxuHVYw1Z",
@@ -165,12 +33,378 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -2848,
-        -64
+        -3216,
+        -144
       ],
       "id": "386d4552-0b85-4acd-a44e-0cdff203849e",
       "name": "Webhook1",
       "webhookId": "e55bc886-7a44-4016-a138-fc165c9c78c5"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads \nSET \n  last_replied = NOW()\nWHERE phone = '{{ $json.phone }}';\n",
+        "options": {
+          "queryReplacement": "=[   $json.name,   $json.phone,   $json.intent,   $json.outreach_message ]"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -576,
+        -192
+      ],
+      "id": "db71d77b-0e48-4d96-90eb-d650c4200a82",
+      "name": "Log Outreach Method",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, phone: $('Normalize input').item.json.phone, message: 'Lead processed and outreach initiated', ai_response: $('OpenAI - Initial Response').item.json.output[0].content[0].text.trim(), outreach_sent: true } }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -480,
+        336
+      ],
+      "id": "b90b28c2-7f95-4d0a-a3d8-7116258203ca",
+      "name": "Respond to Webhook",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2c5de36a-965f-431b-ae3c-17ad0864a657",
+              "name": "name",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "882809fc-8920-460b-8969-fd7844cd9314",
+              "name": "phone",
+              "value": "={{ $json.body.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "b2bce26a-c01f-418d-85b5-9e13506b3463",
+              "name": "intent",
+              "value": "={{ $json.body.intent }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2960,
+        -144
+      ],
+      "id": "5fb36f18-9054-4449-bb1a-639051de2da2",
+      "name": "Normalize input"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO leads (\n  name,\n  phone,\n  intent,\n  outreach_message,\n  last_contacted,\n  created_at\n)\nVALUES (\n  '{{ $('Normalize input').item.json.name }}',\n  '{{ $('Normalize input').item.json.phone }}',\n  '{{ $('Normalize input').item.json.intent }}',\n  $${{ $json.outreach_message }}$$,\n  NOW(),\n  NOW()\n)\nRETURNING *;",
+        "options": {
+          "queryReplacement": "=={{ [ $json.name, $json.phone, $json.intent, $json.outreach_message ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1168,
+        -32
+      ],
+      "id": "ef0d666a-bebf-4af1-b877-d5142136eb19",
+      "name": "Create Lead",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads \nSET \n  outreach_message = $${{ $json.outreach_message }}$$,\n  last_contacted = NOW()\nWHERE phone = '{{ $json.phone }}';",
+        "options": {
+          "queryReplacement": "=={{ [ $json.name, $json.phone, $json.intent, $json.outreach_message ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -944,
+        -272
+      ],
+      "id": "12d52f4b-061f-4b0d-b2bd-b4397aa3db90",
+      "name": "Update Outreach Message",
+      "credentials": {
+        "postgres": {
+          "id": "P9rvHpHyxuHVYw1Z",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a friendly follow-up specialist. Create a SHORT, SMS-ready outreach message (1-2 sentences). Reference the customer's intent. Ask one specific follow-up question. Sound like a real person, not a bot. No emojis, no sales pitch. Customer name:{{ $('Normalize input').item.json.name }} Their intent: {{ $('Normalize input').item.json.intent }} Write an outreach message.\n\n\nGoal: get a reply.\n\nConstraints:\n- Under 160 characters\n- Friendly, natural tone\n- No spammy language\n- Ask a simple question\nReturn ONLY the message."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1808,
+        -272
+      ],
+      "id": "0e2efd18-f79b-43df-b81e-5f48abeb1213",
+      "name": "Outreach Follow-Up Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "6Rg7TtySvkyyQw2P",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8373837096",
+        "text": "={{ $json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1456,
+        -272
+      ],
+      "id": "99c32601-1cff-4586-adf6-4294e5dce4e8",
+      "name": "Send Follow-Up1",
+      "webhookId": "5ae6e1ca-5afd-40bb-b503-959b090958e9",
+      "credentials": {
+        "telegramApi": {
+          "id": "l0z06ZT7dLVXQu3t",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b76e504a-dda0-4c6d-926b-904bbe038872",
+              "name": "phone",
+              "value": "={{ $('Normalize input').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "ca292b85-87c2-4189-bf28-025bf419f4bb",
+              "name": "name",
+              "value": "={{ $('Normalize input').item.json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "f80c053d-cfed-4e60-a926-69c3d3c158aa",
+              "name": "outreach_message",
+              "value": "={{ $('Outreach Follow-Up Model1').item.json.output[0].content[0].text.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "112c0f8c-9631-43bc-be46-50cfc19ac90a",
+              "name": "intent",
+              "value": "={{ $('Normalize input').item.json.intent }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1216,
+        -272
+      ],
+      "id": "c09cd513-9487-43e9-8ed3-de1d9999c34f",
+      "name": "Follow UP Clean UP1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a friendly, professional assistant reaching out to a brand-new lead who just signed up. \n\nYour goal is to write a highly personalized, warm, and casual initial SMS text message. \n\nHere is the lead's information:\n- Name: {{ $('Normalize input').item.json.name }}\n- What they want help with: {{ $('Normalize input').item.json.intent }}\n\nRules:\n1. Address them by their first name (extract it if they gave a full name).\n2. Keep it incredibly short (1 to 2 sentences max). \n3. Sound like a real human texting from a phone, not a corporate robot (no stiff greetings, no overly formal language).\n4. Reference their specific interest/intent naturally.\n5. End with a simple, low-friction question to get them to reply (e.g., \"Are you free for a quick chat today?\" or \"Does that sound like what you're looking for?\")."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2080,
+        -32
+      ],
+      "id": "38a03062-f34e-4faf-b5ba-252d7e746818",
+      "name": "Inital Outreach",
+      "credentials": {
+        "openAiApi": {
+          "id": "6Rg7TtySvkyyQw2P",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8373837096",
+        "text": "={{ $json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1696,
+        -32
+      ],
+      "id": "91c55fb8-eadf-480d-8b53-ea1ce0768118",
+      "name": "Send Follow-Up",
+      "webhookId": "5ae6e1ca-5afd-40bb-b503-959b090958e9",
+      "credentials": {
+        "telegramApi": {
+          "id": "l0z06ZT7dLVXQu3t",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b76e504a-dda0-4c6d-926b-904bbe038872",
+              "name": "phone",
+              "value": "={{ $('Normalize input').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "ca292b85-87c2-4189-bf28-025bf419f4bb",
+              "name": "name",
+              "value": "={{ $('Normalize input').item.json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "f80c053d-cfed-4e60-a926-69c3d3c158aa",
+              "name": "outreach_message",
+              "value": "={{ $('Inital Outreach').item.json.output[0].content[0].text.trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "112c0f8c-9631-43bc-be46-50cfc19ac90a",
+              "name": "intent",
+              "value": "={{ $('Normalize input').item.json.intent }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1440,
+        -32
+      ],
+      "id": "cd616527-e210-47a3-98d5-2ad33a34deb5",
+      "name": "Follow UP Clean UP"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "hours"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2544,
+        -624
+      ],
+      "id": "aeeba4c3-65b1-4cf2-b936-1ee01abe8fb6",
+      "name": "Wait",
+      "webhookId": "37655e7c-aee2-427b-a67d-7fe57f389dbc"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d4f5384f-c30d-4e79-bb08-e0ebcb7210a4",
+              "leftValue": "={{ $('Check Lead Exists').item.json.contacted_too_recently }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2048,
+        -288
+      ],
+      "id": "2ca7550b-f3f0-4acd-a459-92055bbe8e69",
+      "name": "If is spam"
     },
     {
       "parameters": {
@@ -184,11 +418,11 @@
           "conditions": [
             {
               "id": "34e77794-c78b-45b6-a097-934b153be8d2",
-              "leftValue": "={{$json.lead_count}}",
-              "rightValue": 0,
+              "leftValue": "={{ Number($('Check Lead Exists').item.json.lead_exists) }}",
+              "rightValue": "0",
               "operator": {
-                "type": "number",
-                "operation": "gt"
+                "type": "string",
+                "operation": "equals"
               }
             }
           ],
@@ -200,61 +434,54 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -1600,
-        -64
+        -2464,
+        -144
       ],
       "id": "67be377b-bd86-4af2-add1-cda99efe7f13",
-      "name": "If1"
+      "name": "If exisits"
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO leads (name, phone, intent, ai_message, last_contacted)\nVALUES ($1, $2, $3, $4, NOW())",
-        "options": {
-          "queryReplacement": "={{ $('Set Data with AI').item.json.name }}\n{{ $('Set Data with AI').item.json.phone }}\n{{ $('Set Data with AI').item.json.intent }}\n{{ $('Set Data with AI').item.json.ai_message }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
       "position": [
-        -1344,
-        -128
+        -1808,
+        -432
       ],
-      "id": "12d52f4b-061f-4b0d-b2bd-b4397aa3db90",
-      "name": "Execute a SQL query",
-      "credentials": {
-        "postgres": {
-          "id": "P9rvHpHyxuHVYw1Z",
-          "name": "Postgres account"
-        }
-      }
+      "id": "34d68b66-7015-4633-bcc2-248d6ccc0295",
+      "name": "No Operation"
     }
   ],
   "pinData": {},
   "connections": {
-    "Edit Fields": {
+    "Check Lead Exists": {
       "main": [
         [
           {
-            "node": "OpenAI",
+            "node": "If exisits",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "OpenAI": {
+    "Webhook1": {
       "main": [
         [
           {
-            "node": "Set Data with AI",
+            "node": "Normalize input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Set Data with AI": {
+    "Log Outreach Method": {
+      "main": [
+        []
+      ]
+    },
+    "Normalize input": {
       "main": [
         [
           {
@@ -265,45 +492,129 @@
         ]
       ]
     },
-    "Check Lead Exists": {
+    "Create Lead": {
       "main": [
         [
           {
-            "node": "If1",
+            "node": "Log Outreach Method",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update Existing Lead": {
+    "Update Outreach Message": {
+      "main": [
+        [
+          {
+            "node": "Log Outreach Method",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outreach Follow-Up Model1": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-Up1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-Up1": {
+      "main": [
+        [
+          {
+            "node": "Follow UP Clean UP1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow UP Clean UP1": {
+      "main": [
+        [
+          {
+            "node": "Update Outreach Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inital Outreach": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-Up": {
+      "main": [
+        [
+          {
+            "node": "Follow UP Clean UP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow UP Clean UP": {
+      "main": [
+        [
+          {
+            "node": "Create Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
       "main": [
         []
       ]
     },
-    "Webhook1": {
+    "If is spam": {
       "main": [
         [
           {
-            "node": "Edit Fields",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "If1": {
-      "main": [
-        [
-          {
-            "node": "Update Existing Lead",
+            "node": "No Operation",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Execute a SQL query",
+            "node": "Outreach Follow-Up Model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If exisits": {
+      "main": [
+        [
+          {
+            "node": "Inital Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If is spam",
             "type": "main",
             "index": 0
           }
@@ -316,7 +627,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "c7e9fc92-87e8-4a50-a7e2-059e6a464fa9",
+  "versionId": "11040a7d-b5b7-43f5-86b4-c7f4ed5e18da",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8f3ae60e6a8a26c297378764122e56edd6ce6154af7daaf93b06843d42902f9f"
